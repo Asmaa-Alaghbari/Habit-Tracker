@@ -8,20 +8,77 @@ class AddHabit extends StatefulWidget {
 }
 
 class _AddHabitState extends State<AddHabit> {
-  // Form key for validation and saving form data
-  final _formKey = GlobalKey<FormState>();
-  String _habitName = '';
-  String _habitDescription = '';
-  bool _habitRepeat = false;
-  String _habitRepeatDay = '';
-  String _habitRepeatTime = '';
+  final _formKey = GlobalKey<FormState>(); // Key for the form
+  String _habitName = ''; // Habit name
+  String _habitDescription = ''; // Habit description
+  bool _habitRepeat = false; // Reminder habit
+  final List<String> _selectedDays = []; // Selected days for the habit
+  TimeOfDay _selectedTime = TimeOfDay.now(); // Selected time for the habit
+  final TextEditingController _timeController =
+      TextEditingController(); // Controller for the time input field
+
+  // List of days of the week
+  final List<String> _daysOfWeek = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  // Initialize the time controller with the current time
+  @override
+  void initState() {
+    super.initState();
+    _timeController.text = _formatTime(_selectedTime);
+  }
+
+  // Dispose of the time controller when the widget is removed from the widget tree
+  @override
+  void dispose() {
+    _timeController.dispose();
+    super.dispose();
+  }
+
+  // Format the time to a string
+  String _formatTime(TimeOfDay time) {
+    final hour = time.hourOfPeriod;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  // Show the time picker dialog
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(primary: Colors.teal[400]!),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    // Update the selected time if the user picked a new time
+    if (picked != null && picked != _selectedTime) {
+      setState(() {
+        _selectedTime = picked;
+        _timeController.text = _formatTime(_selectedTime);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Padding(
-          padding: const EdgeInsets.only(left: 50, right: 50),
+        title: Center(
           child: Text(
             'Add Your New Habit',
             style: TextStyle(
@@ -32,20 +89,25 @@ class _AddHabitState extends State<AddHabit> {
             ),
           ),
         ),
-        backgroundColor: Colors.orange[200],
+        backgroundColor: Colors.teal[200],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
               TextFormField(
-                maxLength: 20,
-                decoration: InputDecoration(labelText: 'Habit Name'),
+                maxLength: 30,
+                decoration: InputDecoration(
+                  labelText: 'Habit Title',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a habit name';
+                    return 'Please enter a habit title';
                   }
                   return null;
                 },
@@ -53,10 +115,16 @@ class _AddHabitState extends State<AddHabit> {
                   _habitName = value!;
                 },
               ),
+              const SizedBox(height: 16),
               TextFormField(
-                minLines: 1,
+                minLines: 2,
                 maxLines: 5,
-                decoration: InputDecoration(labelText: 'Habit Description'),
+                decoration: InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a habit description';
@@ -67,54 +135,114 @@ class _AddHabitState extends State<AddHabit> {
                   _habitDescription = value!;
                 },
               ),
-              // Do you want to remind yourself to do this habit?
-              Container(
-                margin: const EdgeInsets.only(top: 20),
-                child: Row(
-                  children: [
-                    Text(
-                      'Do you need a reminder?',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[850]),
+              const SizedBox(height: 20),
+              // Reminder toggle switch
+              Row(
+                children: [
+                  Text(
+                    'Do you need a reminder?',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[850]),
+                  ),
+                  Transform.scale(
+                    scale: 0.7,
+                    child: Switch(
+                      activeColor: Colors.teal[400],
+                      activeTrackColor: Colors.teal[200],
+                      inactiveThumbColor: Colors.grey[850],
+                      inactiveTrackColor: Colors.grey[300],
+                      value: _habitRepeat,
+                      onChanged: (value) {
+                        setState(() {
+                          _habitRepeat = value;
+                        });
+                      },
                     ),
-                    Container(
-                      margin: const EdgeInsets.only(left: 10),
-                      child: Transform.scale(
-                        scale: 0.7,
-                        child: Switch(
-                          activeColor: Colors.orange[400],
-                          activeTrackColor: Colors.orange[200],
-                          inactiveThumbColor: Colors.grey[850],
-                          inactiveTrackColor: Colors.grey[300],
-                          value: _habitRepeat,
-                          onChanged: (value) {
+                  ),
+                ],
+              ),
+              // If reminder is enabled, show day and time selection
+              if (_habitRepeat) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Select days you want to be reminded:',
+                  style: TextStyle(fontSize: 16, color: Colors.teal[700]),
+                ),
+                const SizedBox(height: 8),
+                // Day selection chips
+                Wrap(
+                  spacing: 8, // Horizontal spacing between chips
+                  runSpacing: 8, // Vertical spacing between chips
+                  children:
+                      _daysOfWeek.map((day) {
+                        // Check if the day is selected
+                        final isSelected = _selectedDays.contains(day);
+                        return FilterChip(
+                          label: Text(day),
+                          selected: isSelected,
+                          selectedColor: Colors.teal[100],
+                          checkmarkColor: Colors.teal[800],
+                          onSelected: (selected) {
                             setState(() {
-                              _habitRepeat = value;
+                              if (selected) {
+                                _selectedDays.add(day);
+                              } else {
+                                _selectedDays.remove(day);
+                              }
                             });
                           },
-                        ),
-                      ),
-                    ),
-                  ],
+                        );
+                      }).toList(),
                 ),
-              ),
-              Container(
-                margin: const EdgeInsets.only(top: 30),
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _formKey.currentState!.save();
-                      Navigator.pop(context, {
-                        'name': _habitName,
-                        'description': _habitDescription,
-                      });
-                    }
-                  },
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all(Colors.white),
+                const SizedBox(height: 20),
+                // Time picker
+                TextFormField(
+                  controller: _timeController,
+                  decoration: InputDecoration(
+                    labelText: 'Time',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.access_time, color: Colors.teal[400]),
+                      onPressed: () => _selectTime(context),
+                    ),
                   ),
-                  child: Text(
-                    'Add Habit',
-                    style: TextStyle(color: Colors.orange[200], fontSize: 16),
+                  readOnly: true,
+                  onTap: () => _selectTime(context),
+                  validator: (value) {
+                    if (_habitRepeat && (value == null || value.isEmpty)) {
+                      return 'Please select a time';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+              const SizedBox(height: 30),
+              // Button to add the habit
+              ElevatedButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    _formKey.currentState!.save();
+                    Navigator.pop(context, {
+                      'name': _habitName,
+                      'description': _habitDescription,
+                      'repeat': _habitRepeat,
+                      'repeatDays': _habitRepeat ? _selectedDays : null,
+                      'repeatTime':
+                          _habitRepeat ? _formatTime(_selectedTime) : null,
+                    });
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: Text(
+                  'Add Habit',
+                  style: TextStyle(
+                    color: Colors.teal[400],
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
