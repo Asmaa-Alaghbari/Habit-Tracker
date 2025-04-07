@@ -17,6 +17,9 @@ class _AddHabitState extends State<AddHabit> {
   final TextEditingController _timeController =
       TextEditingController(); // Controller for the time input field
 
+  bool _isEditing = false; // Flag to check if editing
+  int? _editIndex; // Index of the habit being edited
+
   // List of days of the week
   final List<String> _daysOfWeek = [
     'Monday',
@@ -32,7 +35,40 @@ class _AddHabitState extends State<AddHabit> {
   @override
   void initState() {
     super.initState();
+    // Set the initial time in the controller
     _timeController.text = _formatTime(_selectedTime);
+
+    // Check if the widget is being edited
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null && args is Map<String, dynamic>) {
+        _loadHabitData(args);
+      }
+    });
+  }
+
+  // Load the habit data if editing an existing habit
+  void _loadHabitData(Map<String, dynamic> habit) {
+    setState(() {
+      _isEditing = true;
+      _habitName = habit['name'];
+      _habitDescription = habit['description'];
+      _habitRepeat = habit['repeat'] ?? false;
+      _selectedDays.addAll(habit['repeatDays'] ?? []);
+      if (habit['repeatTime'] != null) {
+        final timeParts = habit['repeatTime'].split('');
+        final time = timeParts[0].split(':');
+        final period = timeParts[1];
+        _selectedTime = TimeOfDay(
+          hour: period == 'AM' ? int.parse(time[0]) : int.parse(time[0] + 12),
+          minute: int.parse(time[1]),
+        );
+        _timeController.text = habit['repeatTime']!;
+      } else {
+        // If no time is provided, set the selected time to the current time
+        _timeController.text = _formatTime(_selectedTime);
+      }
+    });
   }
 
   // Dispose of the time controller when the widget is removed from the widget tree
@@ -218,33 +254,61 @@ class _AddHabitState extends State<AddHabit> {
                 ),
               ],
               const SizedBox(height: 30),
-              // Button to add the habit
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    _formKey.currentState!.save();
-                    Navigator.pop(context, {
-                      'name': _habitName,
-                      'description': _habitDescription,
-                      'repeat': _habitRepeat,
-                      'repeatDays': _habitRepeat ? _selectedDays : null,
-                      'repeatTime':
-                          _habitRepeat ? _formatTime(_selectedTime) : null,
-                    });
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: Text(
-                  'Add Habit',
-                  style: TextStyle(
-                    color: Colors.teal[400],
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+              // Buttons for saving or discarding
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context); // Simply close without saving
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        'Discard',
+                        style: TextStyle(
+                          color: Colors.teal[400],
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 16), // Space between buttons
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          _formKey.currentState!.save();
+                          Navigator.pop(context, {
+                            'name': _habitName,
+                            'description': _habitDescription,
+                            'repeat': _habitRepeat,
+                            'repeatDays': _habitRepeat ? _selectedDays : null,
+                            'repeatTime':
+                                _habitRepeat
+                                    ? _formatTime(_selectedTime)
+                                    : null,
+                          });
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal[400],
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        _isEditing ? 'Update' : 'Add',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

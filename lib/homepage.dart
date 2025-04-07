@@ -11,7 +11,26 @@ class Homepage extends StatefulWidget {
 class _HomepageState extends State<Homepage> {
   List<Map<String, dynamic>> habits = []; // List to store habit data
   final Map<int, bool> _expandedDescriptions =
-      {}; // Map to track expanded descriptions
+      {}; // Track expanded descriptions
+
+  // Method to be able to edit the habit
+  Future<void> _editHabit(int index) async {
+    final updatedHabit = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddHabit(),
+        settings: RouteSettings(arguments: habits[index]),
+      ),
+    );
+
+    // Check if the updated habit is not null
+    if (updatedHabit != null) {
+      setState(() {
+        habits[index] = updatedHabit;
+        _expandedDescriptions[index] = false; // Reset expanded state
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,10 +134,23 @@ class _HomepageState extends State<Homepage> {
                           ],
                         ],
                       ),
-                      trailing: IconButton(
-                        // Right icon for delete
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _showDeleteConfirmationDialog(index),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min, // To fit the icons
+                        children: [
+                          // Edit icon button
+                          IconButton(
+                            icon: Icon(Icons.edit, color: Colors.teal[600]),
+                            onPressed: () => _editHabit(index),
+                          ),
+
+                          // Delete icon button
+                          IconButton(
+                            // Right icon for delete
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed:
+                                () => _showDeleteConfirmationDialog(index),
+                          ),
+                        ],
                       ),
                     ),
                   );
