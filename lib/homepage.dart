@@ -10,6 +10,8 @@ class Homepage extends StatefulWidget {
 
 class _HomepageState extends State<Homepage> {
   List<Map<String, dynamic>> habits = []; // List to store habit data
+  final Map<int, bool> _expandedDescriptions =
+      {}; // Map to track expanded descriptions
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +47,14 @@ class _HomepageState extends State<Homepage> {
                 itemCount: habits.length,
                 itemBuilder: (context, index) {
                   final habit = habits[index];
+                  final isExpanded = _expandedDescriptions[index] ?? false;
+                  final descriptionLines = habit['description']!.split('\n');
+                  final firsLine = descriptionLines.first;
+                  final remainingLines =
+                      descriptionLines.length > 1
+                          ? descriptionLines.sublist(1).join('\n')
+                          : null;
+
                   return Card(
                     elevation: 2,
                     margin: const EdgeInsets.symmetric(vertical: 6),
@@ -67,7 +77,32 @@ class _HomepageState extends State<Homepage> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(habit['description']!),
+                          Text(firsLine),
+
+                          if (isExpanded && remainingLines != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(remainingLines),
+                            ),
+
+                          if (remainingLines != null)
+                            // Expandable text
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _expandedDescriptions[index] = !isExpanded;
+                                });
+                              },
+                              child: Text(
+                                isExpanded ? 'Show less' : 'Show more',
+                                style: TextStyle(
+                                  color: Colors.teal[600],
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+
                           if (habit['repeat'] == true) ...[
                             const SizedBox(height: 4),
                             Text(
@@ -126,6 +161,7 @@ class _HomepageState extends State<Homepage> {
   void _deleteHabit(int index) {
     setState(() {
       habits.removeAt(index);
+      _expandedDescriptions.remove(index); // Remove the expanded state
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
